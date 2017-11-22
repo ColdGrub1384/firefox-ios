@@ -25,7 +25,7 @@ private struct ETLDEntry: CustomStringConvertible {
 private typealias TLDEntryMap = [String: ETLDEntry]
 
 private func loadEntriesFromDisk() -> TLDEntryMap? {
-    if let data = String.contentsOfFileWithResourceName("effective_tld_names", ofType: "dat", fromBundle: Bundle(identifier: "org.mozilla.Shared")!, encoding: .utf8, error: nil) {
+    /*if let data = String.contentsOfFileWithResourceName("effective_tld_names", ofType: "dat", fromBundle: Bundle(identifier: "org.mozilla.Shared")!, encoding: .utf8, error: nil) {
         let lines = data.components(separatedBy: "\n")
         let trimmedLines = lines.filter { !$0.hasPrefix("//") && $0 != "\n" && $0 != "" }
 
@@ -45,7 +45,7 @@ private func loadEntriesFromDisk() -> TLDEntryMap? {
             entries[key] = entry
         }
         return entries
-    }
+    }*/
     return nil
 }
 

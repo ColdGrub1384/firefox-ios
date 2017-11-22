@@ -54,22 +54,35 @@ class ShareFileHelper: NSObject, OpenInHelper {
     }
 
     func open() {
-        let alertController = UIAlertController(
-            title: Strings.OpenInDownloadHelperAlertTitle,
-            message: Strings.OpenInDownloadHelperAlertMessage,
-            preferredStyle: UIAlertControllerStyle.alert)
-        alertController.addAction( UIAlertAction(title: Strings.OpenInDownloadHelperAlertCancel, style: .cancel, handler: nil))
-        alertController.addAction(UIAlertAction(title: Strings.OpenInDownloadHelperAlertConfirm, style: .default) { (action) in
-            let objectsToShare = [self.url]
-            let activityVC = UIActivityViewController(activityItems: objectsToShare, applicationActivities: nil)
-            if let sourceView = self.openInView, let popoverController = activityVC.popoverPresentationController {
-                popoverController.sourceView = sourceView
-                popoverController.sourceRect = CGRect(origin: CGPoint(x: sourceView.bounds.midX, y: sourceView.bounds.maxY), size: .zero)
-                popoverController.permittedArrowDirections = .up
+        URLSession.shared.downloadTask(with: self.url) { (file, reponse, error) in
+            guard let docs = FileManager.default.urls(for: .documentDirectory, in: .allDomainsMask).first else { return }
+            
+            do {
+                let date = Date()
+                var fileName = "\(date.toRelativeTimeString())"
+                
+                if let fileName_ = reponse?.suggestedFilename {
+                    fileName = fileName_
+                }
+                
+                guard let file_ = file else { return }
+                
+                let newDestination = docs.appendingPathComponent(fileName)
+                try FileManager.default.moveItem(at: file_, to: newDestination)
+                
+                DispatchQueue.main.async {
+                    let activityVC = UIActivityViewController(activityItems: [newDestination], applicationActivities: nil)
+                    UIApplication.shared.keyWindow?.rootViewController?.present(activityVC, animated: true, completion: nil)
+                }
+            } catch let error {
+                let errorTitle = "Error downloading file!" // It will be localized
+                
+                let errorAlert = UIAlertController(title: errorTitle, message: error.localizedDescription, preferredStyle: .alert)
+                errorAlert.addAction(UIAlertAction(title: "Ok", style: .default, handler: nil))
+                
+                UIApplication.shared.keyWindow?.rootViewController?.present(errorAlert, animated: true, completion: nil)
             }
-            UIApplication.shared.keyWindow?.rootViewController?.present(activityVC, animated: true, completion: nil)
-        })
-        UIApplication.shared.keyWindow?.rootViewController?.present(alertController, animated: true, completion: nil)
+        }.resume()
     }
 }
 
