@@ -54,6 +54,7 @@ class ShareFileHelper: NSObject, OpenInHelper {
     }
 
     func open() {
+                
         URLSession.shared.downloadTask(with: self.url) { (file, reponse, error) in
             guard let docs = FileManager.default.urls(for: .documentDirectory, in: .allDomainsMask).first else { return }
             
@@ -68,6 +69,11 @@ class ShareFileHelper: NSObject, OpenInHelper {
                 guard let file_ = file else { return }
                 
                 let newDestination = docs.appendingPathComponent(fileName)
+                
+                if FileManager.default.fileExists(atPath: newDestination.path) {
+                    try FileManager.default.removeItem(at: newDestination)
+                }
+                
                 try FileManager.default.moveItem(at: file_, to: newDestination)
                 
                 DispatchQueue.main.async {
