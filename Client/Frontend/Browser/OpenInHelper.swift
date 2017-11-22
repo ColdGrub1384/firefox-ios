@@ -56,69 +56,93 @@ class ShareFileHelper: NSObject, OpenInHelper {
     func open() {
         
         let downloadingTitle = "Downloading..." // Will be localized
-        let downloadingAlert = UIAlertController(title: downloadingTitle, message: nil, preferredStyle: .alert)
+        let downloadingAlert = UIAlertController(title: downloadingTitle, message: "", preferredStyle: .alert)
         var isDownloaded = false
         let rootVC = UIApplication.shared.keyWindow?.rootViewController
+        var newDestination = URL(string: "file:///")!
         
         let downloadTask = URLSession.shared.downloadTask(with: self.url) { (file, reponse, error) in
             
             isDownloaded = true
             
-            downloadingAlert.dismiss(animated: true, completion: {
-                guard let docs = FileManager.default.urls(for: .documentDirectory, in: .allDomainsMask).first else { return }
+            if let error = error {
+                let errorTitle = "Error downloading file!" // It will be localized
                 
-                do {
-                    let date = Date()
-                    var fileName = "\(date.toRelativeTimeString())"
+                downloadingAlert.title = errorTitle
+                downloadingAlert.message = error.localizedDescription
+            }
+            
+            guard let docs = FileManager.default.urls(for: .documentDirectory, in: .allDomainsMask).first else { return }
+            
+            do {
+                let date = Date()
+                var fileName = "\(date.toRelativeTimeString())"
+                
+                if let fileName_ = reponse?.suggestedFilename {
+                    fileName = fileName_
+                }
+                
+                guard let file_ = file else { return }
+                
+                newDestination = docs.appendingPathComponent(fileName)
+                
+                if FileManager.default.fileExists(atPath: newDestination.path) {
+                    try FileManager.default.removeItem(at: newDestination)
+                }
+                
+                try FileManager.default.moveItem(at: file_, to: newDestination)
+                
+                DispatchQueue.main.async {
+                    let finishedTitle = "Download finished!" // Will be localized
+                    let finishedMessage = "Click Open to view the file" // Will be localized
                     
-                    if let fileName_ = reponse?.suggestedFilename {
-                        fileName = fileName_
-                    }
+                    downloadingAlert.title = finishedTitle
+                    downloadingAlert.message = finishedMessage
                     
-                    guard let file_ = file else { return }
-                    
-                    let newDestination = docs.appendingPathComponent(fileName)
-                    
-                    if FileManager.default.fileExists(atPath: newDestination.path) {
-                        try FileManager.default.removeItem(at: newDestination)
-                    }
-                    
-                    try FileManager.default.moveItem(at: file_, to: newDestination)
-                    
-                    DispatchQueue.main.async {
+                    downloadingAlert.addAction(UIAlertAction(title: "Open", style: .default, handler: { (action) in
                         let activityVC = UIActivityViewController(activityItems: [newDestination], applicationActivities: nil)
                         rootVC?.present(activityVC, animated: true, completion: nil)
-                    }
-                } catch let error {
-                    let errorTitle = "Error downloading file!" // It will be localized
+                    }))
                     
-                    let errorAlert = UIAlertController(title: errorTitle, message: error.localizedDescription, preferredStyle: .alert)
-                    errorAlert.addAction(UIAlertAction(title: "Ok", style: .default, handler: nil))
-                    
-                    rootVC?.present(errorAlert, animated: true, completion: nil)
                 }
-            })
+            } catch let error {
+                let errorTitle = "Error downloading file!" // It will be localized
+                
+                downloadingAlert.title = errorTitle
+                downloadingAlert.message = error.localizedDescription
+            }
         }
         
         downloadingAlert.addAction(UIAlertAction(title: Strings.CancelString, style: .cancel, handler: { (action) in
-            downloadTask.cancel()
+            if isDownloaded {
+                do {
+                    try FileManager.default.removeItem(at: newDestination)
+                } catch _ {}
+            } else {
+                downloadTask.cancel()
+            }
         }))
         
         rootVC?.present(downloadingAlert, animated: true, completion: nil)
         
         _ = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { (timer) in
             
+            if isDownloaded {
+                timer.invalidate()
+                return
+            }
+            
             let downloadedBytes = downloadTask.countOfBytesReceived
             let fileSize = downloadTask.countOfBytesExpectedToReceive
             
             let downloadedBytesFormatted = ByteCountFormatter.string(fromByteCount: downloadedBytes, countStyle: .file)
-            let fileSizeFormatted = ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+            var fileSizeFormatted = ByteCountFormatter.string(fromByteCount: fileSize, countStyle: .file)
+            
+            if fileSize == -1 {
+                fileSizeFormatted = "???"
+            }
             
             downloadingAlert.message = "\(downloadedBytesFormatted) / \(fileSizeFormatted)"
-            
-            if isDownloaded {
-                timer.invalidate()
-            }
         }
         
         downloadTask.resume()
